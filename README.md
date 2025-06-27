@@ -1,2 +1,2 @@
 # basic-go-api-template
-Basic Template for Echo Framework Go
+Basic API Template for GO using Echo Framework
