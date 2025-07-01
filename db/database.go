@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -12,26 +13,32 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var DBLogger *log.Logger = logger.SetLogger("./storage/log/db.log")
+type dbKeyType string
+
+const dbKey dbKeyType = "database"
+
+var (
+	DBLogger *log.Logger = logger.SetLogger("./storage/log/db.log")
+	DB       *sql.DB
+)
 
 func InitDB() (*sql.DB, error) {
 	db_cfg := config.LoadDBConfig()
+	var err error
 
-	db, err := connectTo(&db_cfg)
+	DB, err = connectTo(&db_cfg)
 
 	if err != nil {
-		DBLogger.Printf("%v", err)
-		return nil, err
+		DBLogger.Fatalf("%v", err)
 	}
 
-	db.Close()
-	err = db.Ping()
+	DB.Close()
+	err = DB.Ping()
 	if err != nil {
-		DBLogger.Printf("Failed to ping DB: %v", err)
-		return nil, err
+		DBLogger.Fatalf("Failed to ping DB: %v", err)
 	}
 
-	return db, nil
+	return DB, nil
 }
 
 func connectTo(cfg *config.DBConfig) (*sql.DB, error) {
@@ -66,4 +73,17 @@ func dsn(cfg *config.DBConfig) string {
 	}
 
 	return dsn
+}
+
+func InjectDB(ctx context.Context) context.Context {
+	return context.WithValue(ctx, dbKey, DB)
+}
+
+func FromContext(ctx context.Context) *sql.DB {
+	db, ok := ctx.Value(dbKey).(*sql.DB)
+	if !ok {
+		DBLogger.Fatal("database not found in context")
+	}
+
+	return db
 }
