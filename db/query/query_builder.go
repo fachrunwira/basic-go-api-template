@@ -1,45 +1,57 @@
-package db
+package query
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 
 	"github.com/fachrunwira/basic-go-api-template/config"
+	"github.com/fachrunwira/basic-go-api-template/db"
+	"github.com/fachrunwira/basic-go-api-template/lib/logger"
 )
 
 type queryBuilder struct {
 	db          *sql.DB
-	TableName   string
-	TableAlias  string
-	Fields      []string
-	WhereClause []string
-	OrderClause []string
-	GroupClause []string
-	PageSize    int
-	OffsetSize  int
+	tableName   string
+	tableAlias  string
+	fields      []string
+	whereClause []string
+	orderClause []string
+	groupClause []string
+	pageSize    int
+	offsetSize  int
 	args        []interface{}
 }
 
+var DBLogger *log.Logger = logger.SetLogger("./storage/log/db.log")
+
+func NewQuery(ctx context.Context) *queryBuilder {
+	return &queryBuilder{
+		db: db.FromContext(ctx),
+	}
+}
+
 func (qb *queryBuilder) Table(table string, alias ...string) *queryBuilder {
-	qb.TableName = table
+	qb.tableName = table
 	if len(alias) > 0 {
-		qb.TableAlias = alias[0]
+		qb.tableAlias = alias[0]
 	}
 	return qb
 }
 
 func (qb *queryBuilder) Select(fields ...string) *queryBuilder {
-	qb.Fields = append(qb.Fields, fields...)
+	qb.fields = append(qb.fields, fields...)
 	return qb
 }
 
 func (qb *queryBuilder) Where(cond string, args ...interface{}) *queryBuilder {
-	if len(qb.WhereClause) > 0 {
-		qb.WhereClause = append(qb.WhereClause, fmt.Sprintf("AND %s", cond))
+	if len(qb.whereClause) > 0 {
+		qb.whereClause = append(qb.whereClause, fmt.Sprintf("AND %s", cond))
 	} else {
-		qb.WhereClause = append(qb.WhereClause, cond)
+		qb.whereClause = append(qb.whereClause, cond)
 	}
 
 	qb.args = append(qb.args, args...)
@@ -47,10 +59,10 @@ func (qb *queryBuilder) Where(cond string, args ...interface{}) *queryBuilder {
 }
 
 func (qb *queryBuilder) OrWhere(cond string, args ...interface{}) *queryBuilder {
-	if len(qb.WhereClause) > 0 {
-		qb.WhereClause = append(qb.WhereClause, fmt.Sprintf("AND %s", cond))
+	if len(qb.whereClause) > 0 {
+		qb.whereClause = append(qb.whereClause, fmt.Sprintf("AND %s", cond))
 	} else {
-		qb.WhereClause = append(qb.WhereClause, cond)
+		qb.whereClause = append(qb.whereClause, cond)
 	}
 
 	qb.args = append(qb.args, args...)
@@ -58,27 +70,27 @@ func (qb *queryBuilder) OrWhere(cond string, args ...interface{}) *queryBuilder 
 }
 
 func (qb *queryBuilder) WhereRaw(raw string) *queryBuilder {
-	if len(qb.WhereClause) > 0 {
-		qb.WhereClause = append(qb.WhereClause, raw)
+	if len(qb.whereClause) > 0 {
+		qb.whereClause = append(qb.whereClause, raw)
 	} else {
-		qb.WhereClause = append(qb.WhereClause, fmt.Sprintf("AND %s", raw))
+		qb.whereClause = append(qb.whereClause, fmt.Sprintf("AND %s", raw))
 	}
 
 	return qb
 }
 
 func (qb *queryBuilder) OrWhereRaw(raw string) *queryBuilder {
-	if len(qb.WhereClause) > 0 {
-		qb.WhereClause = append(qb.WhereClause, raw)
+	if len(qb.whereClause) > 0 {
+		qb.whereClause = append(qb.whereClause, raw)
 	} else {
-		qb.WhereClause = append(qb.WhereClause, fmt.Sprintf("OR %s", raw))
+		qb.whereClause = append(qb.whereClause, fmt.Sprintf("OR %s", raw))
 	}
 
 	return qb
 }
 
 func (qb *queryBuilder) GroupBy(fields ...string) *queryBuilder {
-	qb.GroupClause = append(qb.GroupClause, fields...)
+	qb.groupClause = append(qb.groupClause, fields...)
 	return qb
 }
 
@@ -88,7 +100,7 @@ func (qb *queryBuilder) OrderBy(fields string, sortBy ...string) *queryBuilder {
 		sort = sortBy[0]
 	}
 
-	qb.OrderClause = append(qb.OrderClause, fmt.Sprintf("%s %s", fields, sort))
+	qb.orderClause = append(qb.orderClause, fmt.Sprintf("%s %s", fields, sort))
 
 	return qb
 }
@@ -99,12 +111,12 @@ func (qb *queryBuilder) Limit(size ...int) *queryBuilder {
 		pageSize = size[0]
 	}
 
-	qb.PageSize = pageSize
+	qb.pageSize = pageSize
 	return qb
 }
 
 func (qb *queryBuilder) Offset(page int) *queryBuilder {
-	qb.OffsetSize = (page - 1)
+	qb.offsetSize = (page - 1)
 	return qb
 }
 
@@ -113,29 +125,29 @@ func Builder() *queryBuilder {
 }
 
 func (qb *queryBuilder) initGetRows() (string, []interface{}) {
-	query := fmt.Sprintf("SELECT %s FROM %s", strings.Join(qb.Fields, ", "), qb.TableName)
-	if qb.TableAlias != "" {
-		query += fmt.Sprintf(" AS %s", qb.TableAlias)
+	query := fmt.Sprintf("SELECT %s FROM %s", strings.Join(qb.fields, ", "), qb.tableName)
+	if qb.tableAlias != "" {
+		query += fmt.Sprintf(" AS %s", qb.tableAlias)
 	}
 
-	if len(qb.WhereClause) > 0 {
-		query += fmt.Sprintf(" WHERE %s", strings.Join(qb.WhereClause, " "))
+	if len(qb.whereClause) > 0 {
+		query += fmt.Sprintf(" WHERE %s", strings.Join(qb.whereClause, " "))
 	}
 
-	if len(qb.GroupClause) > 0 {
-		query += fmt.Sprintf(" GROUP BY %s", strings.Join(qb.GroupClause, ", "))
+	if len(qb.groupClause) > 0 {
+		query += fmt.Sprintf(" GROUP BY %s", strings.Join(qb.groupClause, ", "))
 	}
 
-	if len(qb.OrderClause) > 0 {
-		query += fmt.Sprintf(" ORDER BY %s", strings.Join(qb.OrderClause, ", "))
+	if len(qb.orderClause) > 0 {
+		query += fmt.Sprintf(" ORDER BY %s", strings.Join(qb.orderClause, ", "))
 	}
 
-	if qb.PageSize > 0 {
-		query += fmt.Sprintf(" LIMIT %d", qb.PageSize)
+	if qb.pageSize > 0 {
+		query += fmt.Sprintf(" LIMIT %d", qb.pageSize)
 	}
 
-	if qb.OffsetSize > 0 {
-		query += fmt.Sprintf(" OFFSET %d", qb.OffsetSize)
+	if qb.offsetSize > 0 {
+		query += fmt.Sprintf(" OFFSET %d", qb.offsetSize)
 	}
 
 	return query, qb.args
@@ -148,7 +160,7 @@ func (qb *queryBuilder) Get(dest ...any) error {
 }
 
 func (qb *queryBuilder) First(dest ...any) error {
-	qb.PageSize = 1
+	qb.pageSize = 1
 	query, args := qb.initGetRows()
 	row := qb.db.QueryRow(query, args...)
 	return row.Scan(dest...)
@@ -184,7 +196,7 @@ func withTransaction(db *sql.DB, fn func(tx *sql.Tx) error) error {
 	return nil
 }
 
-func (qb *queryBuilder) Insert(attributes map[string]string) error {
+func (qb *queryBuilder) Insert(attributes map[string]interface{}) error {
 	var columnSets = make(map[string]struct{})
 
 	for k := range attributes {
@@ -217,7 +229,7 @@ func (qb *queryBuilder) Insert(attributes map[string]string) error {
 
 	placeholders = append(placeholders, strings.Join(ph, ", "))
 
-	query := fmt.Sprintf("INSERT INTO %s (%s) VALUE (%s);", qb.TableName, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUE (%s);", qb.tableName, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
 
 	return withTransaction(qb.db, func(tx *sql.Tx) error {
 		stmt, err := tx.Prepare(query)
@@ -271,7 +283,7 @@ func (qb *queryBuilder) BatchInsert(attributes []map[string]interface{}) error {
 		placeholders = append(placeholders, fmt.Sprintf("(%s)", strings.Join(ph, ", ")))
 	}
 
-	query := fmt.Sprintf(`INSERT INTO %s (%s) VALUES %s;`, qb.TableName, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
+	query := fmt.Sprintf(`INSERT INTO %s (%s) VALUES %s;`, qb.tableName, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
 	return withTransaction(qb.db, func(tx *sql.Tx) error {
 		stmt, err := tx.Prepare(query)
 		if err != nil {
@@ -317,9 +329,9 @@ func (qb *queryBuilder) Update(attributes map[string]interface{}) error {
 	}
 
 	placeholders = append(placeholders, strings.Join(ph, ", "))
-	query := fmt.Sprintf("UPDATE %s SET %s", qb.TableName, strings.Join(placeholders, ", "))
-	if len(qb.WhereClause) > 0 {
-		query += fmt.Sprintf(" WHERE %s", strings.Join(qb.WhereClause, " "))
+	query := fmt.Sprintf("UPDATE %s SET %s", qb.tableName, strings.Join(placeholders, ", "))
+	if len(qb.whereClause) > 0 {
+		query += fmt.Sprintf(" WHERE %s", strings.Join(qb.whereClause, " "))
 		args = append(args, qb.args...)
 	}
 

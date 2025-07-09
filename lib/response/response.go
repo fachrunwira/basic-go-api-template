@@ -33,3 +33,10 @@ func FailedUnknownUser(c echo.Context, message string, errors *string) (err erro
 		"errors":  errors,
 	})
 }
+
+func NewRecord(c echo.Context, message string, content any) (err error) {
+	return c.JSON(http.StatusCreated, echo.Map{
+		"message": message,
+		"content": content,
+	})
+}

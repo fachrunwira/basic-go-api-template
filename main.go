@@ -35,12 +35,7 @@ func main() {
 	AppLogger = logger.SetLogger("./storage/log/app.log")
 	DBLogger = logger.SetLogger("./storage/log/db.log")
 
-	database, err := db.InitDB()
-	if err != nil {
-		DBLogger.Printf("Failed to connect to DB: %v", err)
-	}
-
-	defer database.Close()
+	db.InitDB()
 
 	cache.InitRedis()
 
@@ -69,6 +64,6 @@ func main() {
 	e.Use(middleware.CORS())
 
 	AppLogger.Printf("Starting server on port %s", appPort)
-	routes.RegisterRoutes(e, database)
+	routes.RegisterRoutes(e)
 	e.Start(":" + appPort)
 }

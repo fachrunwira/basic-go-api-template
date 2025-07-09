@@ -22,7 +22,7 @@ var (
 	DB       *sql.DB
 )
 
-func InitDB() (*sql.DB, error) {
+func InitDB() {
 	db_cfg := config.LoadDBConfig()
 	var err error
 
@@ -32,13 +32,10 @@ func InitDB() (*sql.DB, error) {
 		DBLogger.Fatalf("%v", err)
 	}
 
-	DB.Close()
 	err = DB.Ping()
 	if err != nil {
 		DBLogger.Fatalf("Failed to ping DB: %v", err)
 	}
-
-	return DB, nil
 }
 
 func connectTo(cfg *config.DBConfig) (*sql.DB, error) {
