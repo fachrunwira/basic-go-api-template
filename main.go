@@ -8,7 +8,7 @@ import (
 	"github.com/fachrunwira/basic-go-api-template/lib/cache"
 	"github.com/fachrunwira/basic-go-api-template/lib/logger"
 	"github.com/fachrunwira/basic-go-api-template/lib/validation"
-	"github.com/fachrunwira/basic-go-api-template/middlewares/ratelimiting"
+	"github.com/fachrunwira/basic-go-api-template/middlewares"
 	"github.com/fachrunwira/basic-go-api-template/routes"
 
 	"github.com/joho/godotenv"
@@ -63,7 +63,7 @@ func main() {
 	// e.Use(ipwhitelisting.IPWhitelist(allowedIPs))
 
 	// Rate Limiter
-	limiter := ratelimiting.NewClientLimiter(5, 10)
+	limiter := middlewares.NewClientLimiter(5, 10)
 	e.Use(limiter.Middleware())
 
 	e.Use(middleware.CORS())

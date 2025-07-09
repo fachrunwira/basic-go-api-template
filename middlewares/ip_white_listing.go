@@ -1,4 +1,4 @@
-package ipwhitelisting
+package middlewares
 
 import (
 	"net/http"
