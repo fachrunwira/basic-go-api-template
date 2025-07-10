@@ -155,25 +155,55 @@ func (qb *queryBuilder) Get(dest ...any) error {
 	return row.Scan(dest...)
 }
 
-func (qb *queryBuilder) First(dest ...any) error {
+func (qb *queryBuilder) First() (map[string]interface{}, error) {
 	qb.pageSize = 1
 	query, args := qb.initGetRows()
-	row := qb.db.QueryRow(query, args...)
-	return row.Scan(dest...)
+
+	stmt, err := qb.db.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	row, err := stmt.Query(args...)
+	if err != nil {
+		return nil, err
+	}
+	defer row.Close()
+
+	if !row.Next() {
+		return nil, sql.ErrNoRows
+	}
+
+	columns, err := row.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	values := make([]interface{}, len(columns))
+	valuesPtrs := make([]interface{}, len(columns))
+
+	for k := range columns {
+		valuesPtrs[k] = &values[k]
+	}
+
+	if err := row.Scan(valuesPtrs...); err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]interface{})
+	for i, col := range columns {
+		val := values[i]
+
+		if b, ok := val.([]byte); ok {
+			result[col] = string(b)
+		} else {
+			result[col] = val
+		}
+	}
+
+	return result, nil
 }
-
-// func found(attributes *sql.Row) (bool, error) {
-// 	err := attributes
-// 	if err == sql.ErrNoRows {
-// 		return false, nil
-// 	}
-
-// 	if err != nil {
-// 		return false, err
-// 	}
-
-// 	return true, nil
-// }
 
 func withTransaction(db *sql.DB, fn func(tx *sql.Tx) error) error {
 	tx, err := db.Begin()

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/fachrunwira/basic-go-api-template/db/query"
@@ -15,16 +16,11 @@ type (
 		Email    string `json:"email" validate:"required,email,max_string=120"`
 		Password string `json:"password" validate:"required,min_string=8,max_string=64"`
 	}
-
-	userData struct {
-		Password string
-	}
 )
 
 func (h *authHandler) Login(c echo.Context) (err error) {
 	ctx := c.Request().Context()
 	var dto loginDTO
-	var user userData
 
 	if err := c.Bind(&dto); err != nil {
 		h.AppLogger.Printf("LoginDTO, Error: %s", err)
@@ -39,7 +35,21 @@ func (h *authHandler) Login(c echo.Context) (err error) {
 		return response.FailedValidation(c, errMsg, nil)
 	}
 
-	query.NewQuery(ctx).Table("users").Select("passwords").Where("email = ?", dto.Email).First(&user.Password)
+	user, err := query.NewQuery(ctx).
+		Table("users").
+		Select("passwords as pass", "age", "name").
+		Where("email = ?", dto.Email).
+		First()
 
-	return response.Success(c, "ditemukan", user.Password)
+	if err == sql.ErrNoRows {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "Email atau Password salah.",
+			"errors":  nil,
+		})
+	} else if err != nil {
+		h.AppLogger.Printf("AuthHandler, Login: %v", err)
+		return response.InternalError(c, "Gagal mengambil data", "internal server error")
+	}
+
+	return response.Success(c, "ditemukan", user)
 }
