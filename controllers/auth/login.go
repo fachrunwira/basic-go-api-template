@@ -1,72 +1,45 @@
 package auth
 
-// import (
-// 	"log"
-// 	"net/http"
+import (
+	"net/http"
 
-// 	passwordhash "github.com/fachrunwira/basic-go-api-template/lib/password_hash"
-// 	"github.com/fachrunwira/basic-go-api-template/lib/response"
-// 	"github.com/fachrunwira/basic-go-api-template/lib/validation"
+	"github.com/fachrunwira/basic-go-api-template/db/query"
+	"github.com/fachrunwira/basic-go-api-template/lib/response"
+	"github.com/fachrunwira/basic-go-api-template/lib/validation"
+	"github.com/go-playground/validator/v10"
+	"github.com/labstack/echo/v4"
+)
 
-// 	"github.com/go-playground/validator/v10"
-// 	"github.com/labstack/echo/v4"
-// )
+type (
+	loginDTO struct {
+		Email    string `json:"email" validate:"required,email,max_string=120"`
+		Password string `json:"password" validate:"required,min_string=8,max_string=64"`
+	}
 
-// type (
-// 	loginHandler struct {
-// 		AppLogger *log.Logger
-// 	}
+	userData struct {
+		Password string
+	}
+)
 
-// 	userLoginDTO struct {
-// 		Email    string `json:"email_login" form:"email_login" validate:"required,email,max_string=150"`
-// 		Password string `json:"pass_login" form:"pass_login" validate:"required,max_string=250"`
-// 	}
-// )
+func (h *authHandler) Login(c echo.Context) (err error) {
+	ctx := c.Request().Context()
+	var dto loginDTO
+	var user userData
 
-// func NewLoginHandler(logger *log.Logger) *loginHandler {
-// 	return &loginHandler{
-// 		AppLogger: logger,
-// 	}
-// }
+	if err := c.Bind(&dto); err != nil {
+		h.AppLogger.Printf("LoginDTO, Error: %s", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "invalid body request.",
+			"errors":  nil,
+		})
+	}
 
-// func (lh *loginHandler) LoginUser(c echo.Context) (err error) {
-// 	var uDTO userLoginDTO
-// 	ctx := c.Request().Context()
+	if err = c.Validate(&dto); err != nil {
+		errMsg := validation.Errors(err.(validator.ValidationErrors)).(string)
+		return response.FailedValidation(c, errMsg, nil)
+	}
 
-// 	if err := c.Bind(&uDTO); err != nil {
-// 		return c.JSON(http.StatusBadRequest, echo.Map{
-// 			"message": "invalid request body",
-// 			"errors":  nil,
-// 		})
-// 	}
+	query.NewQuery(ctx).Table("users").Select("passwords").Where("email = ?", dto.Email).First(&user.Password)
 
-// 	if err = c.Validate(&uDTO); err != nil {
-// 		errorMessage := validation.Errors(err.(validator.ValidationErrors)).(string)
-// 		return response.FailedValidation(c, errorMessage, nil)
-// 	}
-
-// 	rows, err_row := lh.DB.Query("SELECT id_login, password FROM data_user WHERE email = ? LIMIT 1;", uDTO.Email)
-// 	if err_row != nil {
-// 		lh.AppLogger.Fatalf("Failed to fetch data: %s", err_row)
-// 		return response.InternalError(c, "Unknown error occured", "Internal server error")
-// 	}
-// 	defer rows.Close()
-
-// 	result_row := make(map[string]string)
-// 	for rows.Next() {
-// 		var id, pass string
-// 		err := rows.Scan(&id, &pass)
-// 		if err != nil {
-// 			lh.AppLogger.Fatalf("Failed to fetch data: %s", err)
-// 			return response.InternalError(c, "Terjadi kesalahan saat mengambil data.", "ERRCODE:500")
-// 		}
-// 		result_row["id"] = id
-// 		result_row["pass"] = pass
-// 	}
-
-// 	if !passwordhash.Check(uDTO.Password, result_row["pass"]) {
-// 		return response.FailedUnknownUser(c, "Email atau Password anda salah.", nil)
-// 	}
-
-// 	return response.Success(c, "Berhasil", result_row)
-// }
+	return response.Success(c, "ditemukan", user.Password)
+}

@@ -120,10 +120,6 @@ func (qb *queryBuilder) Offset(page int) *queryBuilder {
 	return qb
 }
 
-func Builder() *queryBuilder {
-	return &queryBuilder{}
-}
-
 func (qb *queryBuilder) initGetRows() (string, []interface{}) {
 	query := fmt.Sprintf("SELECT %s FROM %s", strings.Join(qb.fields, ", "), qb.tableName)
 	if qb.tableAlias != "" {
@@ -165,6 +161,19 @@ func (qb *queryBuilder) First(dest ...any) error {
 	row := qb.db.QueryRow(query, args...)
 	return row.Scan(dest...)
 }
+
+// func found(attributes *sql.Row) (bool, error) {
+// 	err := attributes
+// 	if err == sql.ErrNoRows {
+// 		return false, nil
+// 	}
+
+// 	if err != nil {
+// 		return false, err
+// 	}
+
+// 	return true, nil
+// }
 
 func withTransaction(db *sql.DB, fn func(tx *sql.Tx) error) error {
 	tx, err := db.Begin()

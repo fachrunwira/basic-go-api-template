@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/fachrunwira/basic-go-api-template/db/query"
+	"github.com/fachrunwira/basic-go-api-template/lib/passwordhash"
 	"github.com/fachrunwira/basic-go-api-template/lib/response"
 	"github.com/fachrunwira/basic-go-api-template/lib/validation"
 	"github.com/go-playground/validator/v10"
@@ -12,10 +13,11 @@ import (
 )
 
 type userRegisterDTO struct {
-	Name            string `json:"name" validate:"required,min_string=10,max_string=90"`
+	Name            string `json:"name" validate:"required,max_string=90"`
+	Email           string `json:"email" validate:"required,email,max_string=100"`
 	Age             int    `json:"age" validate:"required,number"`
 	Password        string `json:"password" validate:"required,min_string=8,max_string=64"`
-	ConfirmPassword string `json:"confirm_password" validate:"required,min_string=8,max_string=64,eqfield=password"`
+	ConfirmPassword string `json:"confirm_password" validate:"required,min_string=8,max_string=64,eqfield=Password"`
 }
 
 func (h *userHandler) Register(c echo.Context) (err error) {
@@ -35,11 +37,18 @@ func (h *userHandler) Register(c echo.Context) (err error) {
 		return response.FailedValidation(c, errMsg, nil)
 	}
 
+	hashedPassword, err := passwordhash.Make(registerDTO.Password)
+	if err != nil {
+		h.AppLogger.Printf("RegisterUser, Password: %s", err)
+		return response.InternalError(c, "Failed to hash password.", "internal server error")
+	}
+
 	registerInterface := map[string]interface{}{
 		"id":        uuid.New(),
 		"name":      registerDTO.Name,
+		"email":     registerDTO.Email,
 		"age":       registerDTO.Age,
-		"passwords": registerDTO.Password,
+		"passwords": hashedPassword,
 	}
 
 	if err = query.NewQuery(ctx).Table("users").Insert(registerInterface); err != nil {

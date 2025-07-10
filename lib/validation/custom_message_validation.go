@@ -30,6 +30,8 @@ func errorMessage(ev *errorsValidation) string {
 		return fmt.Sprintf("Kolom '%s', panjang karakter maksimal %s karakter.", ev.Field.Field(), ev.Field.Param())
 	case "min_string":
 		return fmt.Sprintf("Kolom '%s', panjang karakter minimal %s karakter.", ev.Field.Field(), ev.Field.Param())
+	case "eqfield":
+		return fmt.Sprintf("Kolom '%s', tidak memiliki nilai yang sama pada kolom '%s'.", ev.Field.Field(), ev.Field.Param())
 	default:
 		return fmt.Sprintf("'%s' invalid.", ev.Field.Field())
 	}

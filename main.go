@@ -62,6 +62,7 @@ func main() {
 	e.Use(limiter.Middleware())
 
 	e.Use(middleware.CORS())
+	e.Use(middlewares.InjectDB)
 
 	AppLogger.Printf("Starting server on port %s", appPort)
 	routes.RegisterRoutes(e)

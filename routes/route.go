@@ -14,6 +14,7 @@ var AppLogger *log.Logger = logger.SetLogger("./storage/log/app.log")
 func RegisterRoutes(e *echo.Echo) {
 
 	registerUserRoutes(e)
+	registerAuthRoutes(e)
 
 	// Route for not found
 	e.Any("/:any", func(c echo.Context) error {
