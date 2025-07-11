@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/fachrunwira/basic-go-api-template/db/query"
+	"github.com/fachrunwira/basic-go-api-template/lib/passwordhash"
 	"github.com/fachrunwira/basic-go-api-template/lib/response"
 	"github.com/fachrunwira/basic-go-api-template/lib/validation"
 	"github.com/go-playground/validator/v10"
@@ -35,7 +36,7 @@ func (h *authHandler) Login(c echo.Context) (err error) {
 		return response.FailedValidation(c, errMsg, nil)
 	}
 
-	user, err := query.NewQuery(ctx).
+	user, err := query.Builder(ctx).
 		Table("users").
 		Select("passwords as pass", "age", "name").
 		Where("email = ?", dto.Email).
@@ -51,5 +52,12 @@ func (h *authHandler) Login(c echo.Context) (err error) {
 		return response.InternalError(c, "Gagal mengambil data", "internal server error")
 	}
 
-	return response.Success(c, "ditemukan", user)
+	if ok := passwordhash.Check(dto.Password, user["pass"].(string)); !ok {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"message": "Email atau Password salah.",
+			"errors":  nil,
+		})
+	}
+
+	return response.Success(c, "ditemukan", user["pass"])
 }

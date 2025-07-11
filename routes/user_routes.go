@@ -9,6 +9,6 @@ func registerUserRoutes(e *echo.Echo) {
 	userHandler := user.NewUserHandler(AppLogger)
 
 	userGroup := e.Group("/user")
-	// userGroup.GET("/", userHandler.Home)
+	userGroup.GET("", userHandler.Home)
 	userGroup.POST("/register", userHandler.Register)
 }

@@ -51,7 +51,7 @@ func (h *userHandler) Register(c echo.Context) (err error) {
 		"passwords": hashedPassword,
 	}
 
-	if err = query.NewQuery(ctx).Table("users").Insert(registerInterface); err != nil {
+	if err = query.Builder(ctx).Table("users").Insert(registerInterface); err != nil {
 		h.AppLogger.Printf("RegisterUser, Insert: %s", err)
 		return response.InternalError(c, "Failed to save record.", "internal server error")
 	}
