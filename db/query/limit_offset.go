@@ -1,16 +1,19 @@
 package query
 
-func (qb *queryBuilder) Limit(size ...int) *queryBuilder {
-	pageSize := 10
-	if len(size) > 0 {
-		pageSize = size[0]
+func (qb *queryBuilder) Limit(size int) *queryBuilder {
+	if size > 0 {
+		qb.limit = size
+	} else {
+		qb.limit = 15
 	}
-
-	qb.pageSize = pageSize
 	return qb
 }
 
-func (qb *queryBuilder) Offset(page int) *queryBuilder {
-	qb.offsetSize = (page - 1)
+func (qb *queryBuilder) Page(page int) *queryBuilder {
+	if page > 0 {
+		qb.page = page
+	} else {
+		qb.page = 1
+	}
 	return qb
 }

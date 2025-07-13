@@ -1,5 +1,7 @@
 package config
 
+import "github.com/fachrunwira/basic-go-api-template/lib/env"
+
 type RedisConfig struct {
 	Address  string
 	Password string
@@ -9,9 +11,9 @@ type RedisConfig struct {
 
 func LoadRedisConfig() RedisConfig {
 	return RedisConfig{
-		Address:  getEnv("REDIS_HOST", "localhost"),
-		Port:     getEnv("REDIS_PORT", "6379"),
-		Password: getEnv("REDIS_PASS", ""),
-		Database: getEnvAsInt("REDIS_DB", 0),
+		Address:  env.Get("REDIS_HOST", "localhost"),
+		Port:     env.Get("REDIS_PORT", "6379"),
+		Password: env.Get("REDIS_PASS", ""),
+		Database: env.GetInt("REDIS_DB", 0),
 	}
 }

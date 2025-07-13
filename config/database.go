@@ -1,5 +1,7 @@
 package config
 
+import "github.com/fachrunwira/basic-go-api-template/lib/env"
+
 type DBConfig struct {
 	Host     string
 	Port     string
@@ -11,11 +13,11 @@ type DBConfig struct {
 
 func LoadDBConfig() DBConfig {
 	return DBConfig{
-		Host:     getEnv("DB_HOST", "localhost"),
-		Port:     getEnv("DB_PORT", "3306"),
-		Name:     getEnv("DB_NAME", "go_database"),
-		User:     getEnv("DB_USER", "gobase"),
-		Password: getEnv("DB_PASSWORD", ""),
-		Driver:   getEnv("DB_CONNECTION", "mysql"),
+		Host:     env.Get("DB_HOST", "localhost"),
+		Port:     env.Get("DB_PORT", "3306"),
+		Name:     env.Get("DB_NAME", "go_database"),
+		User:     env.Get("DB_USER", "gobase"),
+		Password: env.Get("DB_PASSWORD", ""),
+		Driver:   env.Get("DB_CONNECTION", "mysql"),
 	}
 }

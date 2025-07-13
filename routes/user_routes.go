@@ -10,5 +10,6 @@ func registerUserRoutes(e *echo.Echo) {
 
 	userGroup := e.Group("/user")
 	userGroup.GET("", userHandler.Home)
+	userGroup.GET("/list", userHandler.ListUser)
 	userGroup.POST("/register", userHandler.Register)
 }

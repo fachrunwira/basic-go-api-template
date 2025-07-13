@@ -31,20 +31,12 @@ func (qb *queryBuilder) initGetRows() (string, []interface{}) {
 		query += fmt.Sprintf(" ORDER BY %s", strings.Join(qb.orderClause, ", "))
 	}
 
-	if qb.pageSize > 0 {
-		query += fmt.Sprintf(" LIMIT %d", qb.pageSize)
-	}
-
-	if qb.offsetSize > 0 {
-		query += fmt.Sprintf(" OFFSET %d", qb.offsetSize-1)
-	}
-
 	return query, qb.args
 }
 
 func (qb *queryBuilder) First() (map[string]interface{}, error) {
-	qb.pageSize = 1
 	query, args := qb.initGetRows()
+	query += " LIMIT 1;"
 
 	stmt, err := qb.db.Prepare(query)
 	if err != nil {

@@ -17,8 +17,8 @@ type queryBuilder struct {
 	whereClause []string
 	orderClause []string
 	groupClause []string
-	pageSize    int
-	offsetSize  int
+	limit       int
+	page        int
 	args        []interface{}
 }
 
@@ -26,6 +26,8 @@ var dbLogger *log.Logger = logger.SetLogger("./storage/log/db.log")
 
 func Builder(ctx context.Context) *queryBuilder {
 	return &queryBuilder{
-		db: db.FromContext(ctx),
+		db:    db.FromContext(ctx),
+		limit: 15,
+		page:  1,
 	}
 }
