@@ -69,11 +69,7 @@ func setUri(c echo.Context, links string) string {
 			}
 		}
 	} else {
-		if links == "next" {
-			page = 2
-		} else {
-			page = 1
-		}
+		page = 2
 	}
 
 	queryParams["page"] = strconv.Itoa(page)
