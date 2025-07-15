@@ -15,6 +15,7 @@ func RegisterRoutes(e *echo.Echo) {
 
 	registerUserRoutes(e)
 	registerAuthRoutes(e)
+	registerFilesRouter(e)
 
 	// Route for not found
 	e.Any("/:any", func(c echo.Context) error {

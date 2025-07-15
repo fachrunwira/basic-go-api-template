@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"github.com/fachrunwira/basic-go-api-template/controllers/auth"
+	"github.com/fachrunwira/basic-go-api-template/handlers/auth"
 	"github.com/labstack/echo/v4"
 )
 
