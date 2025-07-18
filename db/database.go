@@ -8,9 +8,11 @@ import (
 
 	"github.com/fachrunwira/basic-go-api-template/config"
 	"github.com/fachrunwira/basic-go-api-template/lib/logger"
+	"github.com/fachrunwira/basic-go-api-template/lib/storage"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type dbKeyType string
@@ -24,9 +26,8 @@ var (
 
 func InitDB() {
 	db_cfg := config.LoadDBConfig()
-	var err error
 
-	DB, err = connectTo(&db_cfg)
+	DB, err := connectTo(&db_cfg)
 
 	if err != nil {
 		DBLogger.Fatalf("%v", err)
@@ -49,6 +50,19 @@ func connectTo(cfg *config.DBConfig) (*sql.DB, error) {
 		}
 	case "mysql":
 		if db, err = sql.Open("mysql", dsn(cfg)); err != nil {
+			return nil, fmt.Errorf("failed to open connection to database: %v", err)
+		}
+	case "sqlite":
+		st := storage.Init().StoragePath().Directory("databases").Get("database.db")
+		if st.Error() != nil {
+			return nil, st.Error()
+		}
+		url, err := st.Url()
+		if err != nil {
+			return nil, err
+		}
+
+		if db, err = sql.Open("sqlite3", *url); err != nil {
 			return nil, fmt.Errorf("failed to open connection to database: %v", err)
 		}
 	default:
