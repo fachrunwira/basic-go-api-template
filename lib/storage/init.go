@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"os"
 	"path/filepath"
 
@@ -60,7 +62,7 @@ func (s *storage) Directory(dir ...string) *storage {
 	}
 
 	if s.path == "" {
-		s.err = fmt.Errorf("must specified using PublicPath() or StoragePath() first")
+		s.err = fmt.Errorf("must specify using PublicPath() or StoragePath() first")
 	}
 
 	diskPath := filepath.Join(s.path, filepath.Join(dir...))
@@ -68,9 +70,9 @@ func (s *storage) Directory(dir ...string) *storage {
 	return s
 }
 
-func (s storage) Exists(path string) (bool, error) {
+func (s *storage) Exists(path string) (bool, error) {
 	if s.path == "" {
-		return false, fmt.Errorf("must specified using PublicPath() or StoragePath() first")
+		return false, fmt.Errorf("must specify using PublicPath() or StoragePath() first")
 	}
 
 	if s.err != nil {
@@ -89,28 +91,45 @@ func (s storage) Exists(path string) (bool, error) {
 	return true, nil
 }
 
-func (s *storage) SaveFile(filename string) *storage {
+func (s *storage) StoreFile(filename string, source any) error {
 	if s.err != nil {
-		return s
+		return s.err
 	}
 
 	if s.path == "" {
-		s.err = fmt.Errorf("must specified using PublicPath() or StoragePath() first")
-		return s
+		return fmt.Errorf("must specify using PublicPath() or StoragePath() first")
 	}
 
 	fullPath := filepath.Join(s.path, filename)
 	f, err := os.Create(fullPath)
 	if err != nil {
-		s.err = err
-		return s
+		return err
 	}
 	defer f.Close()
 
-	f.WriteString("dummy content")
+	switch src := source.(type) {
+	case *multipart.FileHeader:
+		file, err := src.Open()
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		if _, err := io.Copy(f, file); err != nil {
+			return err
+		}
+	case string:
+		if _, err := f.WriteString(src); err != nil {
+			return err
+		}
+	case []byte:
+		if _, err := f.Write(src); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unsupported source type: %v", src)
+	}
 
-	fmt.Printf("Saved file at: %v", fullPath)
-	return s
+	return nil
 }
 
 func (s *storage) Get(path string) *storage {
@@ -119,7 +138,7 @@ func (s *storage) Get(path string) *storage {
 	}
 
 	if s.path == "" {
-		s.err = fmt.Errorf("must specified using PublicPath() or StoragePath() first")
+		s.err = fmt.Errorf("must specify using PublicPath() or StoragePath() first")
 		return s
 	}
 
@@ -128,18 +147,18 @@ func (s *storage) Get(path string) *storage {
 	return s
 }
 
-func (s storage) Json() (interface{}, error) {
+func (s *storage) Json() (interface{}, error) {
 	if s.err != nil {
 		return nil, s.err
 	}
 
 	if s.path == "" {
-		return nil, fmt.Errorf("must specified using PublicPath() or StoragePath() first")
+		return nil, fmt.Errorf("must specify using PublicPath() or StoragePath() first")
 	}
 
 	file, err := os.ReadFile(s.path)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("the specified file is not found")
+		return nil, fmt.Errorf("the specify file is not found")
 	} else if err != nil {
 		return nil, err
 	}
@@ -151,22 +170,22 @@ func (s storage) Json() (interface{}, error) {
 	return obj, nil
 }
 
-func (s storage) SaveJsonInChunk(rows int, outputFile string) error {
+func (s *storage) SaveJsonInChunk(rows int, outputFile string) error {
 	if s.err != nil {
 		return s.err
 	}
 
 	if s.path == "" {
-		return fmt.Errorf("must specified using PublicPath() or StoragePath() first")
+		return fmt.Errorf("must specify using PublicPath() or StoragePath() first")
 	}
 
 	if outputFile == "" {
-		return fmt.Errorf("outputFile must be specified")
+		return fmt.Errorf("outputFile must be specify")
 	}
 
 	info, err := os.Stat(s.path)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("the specified file is not found")
+		return fmt.Errorf("the specify file is not found")
 	} else if err != nil {
 		return err
 	}
@@ -183,37 +202,66 @@ func (s storage) SaveJsonInChunk(rows int, outputFile string) error {
 
 	decoder := json.NewDecoder(file)
 	t, err := decoder.Token()
-	if err != nil || t != json.Delim('[') {
+	if err != nil {
 		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("expected JSON array at root")
 	}
 
 	var chunk []json.RawMessage
 	chunkIndex := 1
 	total := 0
 
-	saveChunk := func(chunk []json.RawMessage, index int) {
-		if len(chunk) == 0 {
-			return
-		}
-
-		outPath := filepath.Join(s.path, fmt.Sprintf("%s_chunk_%d.json", outputFile, index))
-		data, _ := json.MarshalIndent(chunk, "", "  ")
-		_ = os.WriteFile(outPath, data, 0644)
-	}
-
 	for decoder.More() {
 		var obj json.RawMessage
-		if err != decoder.Decode(&obj) {
+		if err := decoder.Decode(&obj); err != nil {
 			return err
 		}
 		chunk = append(chunk, obj)
 		total++
 
 		if len(chunk) == rows {
-			saveChunk(chunk, chunkIndex)
-			chunk = nil
+			if err := s.saveChunk(chunk, chunkIndex, outputFile); err != nil {
+				return err
+			}
+			chunk = chunk[:0]
 			chunkIndex++
 		}
+	}
+
+	if len(chunk) > 0 {
+		if err := s.saveChunk(chunk, chunkIndex, outputFile); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *storage) saveChunk(chunk []json.RawMessage, index int, outFile string) error {
+	if len(chunk) == 0 {
+		return nil
+	}
+
+	outDir := filepath.Dir(s.path)
+	_, err := os.Stat(outDir)
+	if os.IsNotExist(err) {
+		os.MkdirAll(outDir, 0755)
+	} else if err != nil {
+		return err
+	}
+
+	outPath := filepath.Join(outDir, fmt.Sprintf("%s_chunk_%d.json", outFile, index))
+	data, err := json.MarshalIndent(chunk, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(outPath, data, 0644)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -225,12 +273,12 @@ func (s storage) Csv() ([]string, error) {
 	}
 
 	if s.path == "" {
-		return nil, fmt.Errorf("must specified using PublicPath() or StoragePath() first")
+		return nil, fmt.Errorf("must specify using PublicPath() or StoragePath() first")
 	}
 
 	file, err := os.Open(s.path)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("the specified file is not found")
+		return nil, fmt.Errorf("the specify file is not found")
 	} else if err != nil {
 		return nil, err
 	}
@@ -242,6 +290,10 @@ func (s storage) Csv() ([]string, error) {
 		data = append(data, scanFile.Text())
 	}
 
+	if err := scanFile.Err(); err != nil {
+		return nil, err
+	}
+
 	return data, nil
 }
 
@@ -251,12 +303,12 @@ func (s storage) Url() (*string, error) {
 	}
 
 	if s.path == "" {
-		return nil, fmt.Errorf("must specified using PublicPath() or StoragePath() first")
+		return nil, fmt.Errorf("must specify using PublicPath() or StoragePath() first")
 	}
 
 	return &s.path, nil
 }
 
-func (s *storage) Error() error {
+func (s storage) Error() error {
 	return s.err
 }
